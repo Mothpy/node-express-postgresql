@@ -5,7 +5,7 @@ const methodNotAllowed = require("../errors/methodNotAllowed");
 router.route("/").post(controller.create).all(methodNotAllowed);
 
 router
-  .route("/:supplierId([0-9]+)")
+  .route("/:supplierId")
   .put(controller.update)
   .delete(controller.delete)
   .all(methodNotAllowed);

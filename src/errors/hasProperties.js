@@ -1,6 +1,6 @@
 function hasProperties(...properties) {
-    return function (res, req, next) {
-      const { data = {} } = res.body;
+    return function (req, res, next) {
+      const { data = {} } = req.body;
   
       try {
         properties.forEach((property) => {
@@ -13,8 +13,8 @@ function hasProperties(...properties) {
         next();
       } catch (error) {
         next(error);
-      }
+        }
     };
-  }
+}
   
-  module.exports = hasProperties;
+module.exports = hasProperties;
