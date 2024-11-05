@@ -1,8 +1,9 @@
 const suppliersService = require("./suppliers.service.js");
 const hasProperties = require("../errors/hasProperties");
 const hasRequiredProperties = hasProperties("supplier_name", "supplier_email");
+const asyncErrorBoundary = require("../errors/asyncErrorBoundary.js");
 
-// middleare to validate properties of client request to server 
+// MIDDLWARE TO VALIDATE PROPERTIES OF CLIENT REQUEST TO SERVER
 const VALID_PROPERTIES = [
   "supplier_name",
   "supplier_address_line_1",
@@ -16,7 +17,7 @@ const VALID_PROPERTIES = [
   "supplier_type_of_goods",
 ];
 
-// middleware to check if request body contains specified set of allowed fields 
+// MIDDLWARE TO CHECK IF PROPERTIES HAVE VALID FIELDS 
 function hasOnlyValidProperties(req, res, next) {
   const { data = {} } = req.body;
 
@@ -33,63 +34,49 @@ function hasOnlyValidProperties(req, res, next) {
   next();
 }
 
-// middleware to check if supplierExists
-function supplierExists(req, res, next) {
-  suppliersService
-    .read(req.params.supplierId)
-    .then((supplier) => {
-      if (supplier) {
-        res.locals.supplier = supplier;
-        return next();
-      }
-      next({ status: 404, message: `Supplier cannot be found.` });
-    })
-    .catch(next);
-  // Chaining then() to suppliersService.read() will execute the Knex query that you defined previously to retrieve a supplier by supplier ID
-  // The query returns a promise, which is handled in the then() function
-  // If the supplier exists, it is stored in res.locals.supplier so that it can be readily accessed in the rest of the middleware pipeline
-  // Otherwise next() is called with an error object 
+// MIDDLEWARE TO CHECK IF SUPPLIER EXISTS
+async function supplierExists(req, res, next) {
+  const supplier = await suppliersService.read(req.params.supplierId);
+  if (supplier) {
+    res.locals.supplier = supplier;
+    return next();
+  }
+  next({ status: 404, message: `Supplier cannot be found.` });
 }
 
-
-// create function 
-function create(req, res, next) {
-  suppliersService
-    .create(req.body.data)
-    .then((data) => res.status(201).json({ data }))
-    .catch(next);
-// The function above calls the suppliersService.create() method, passing in req.body.data as the argument
-// The req.body.data argument references the object containing the supplier information
-// Chaining then() to suppliersService.create() executes the Knex query
-// If the promise resolves successfully, the server responds with a 201 status code along with the newly created supplier
+// CREATE FUNC
+async function create(req, res) {
+  const data = await suppliersService.create(req.body.data);
+  res.status(201).json({ data });
 }
 
-// update func 
-function update(req, res, next) {
+// UPDATE FUNC
+async function update(req, res) {
   const updatedSupplier = {
     ...req.body.data,
     supplier_id: res.locals.supplier.supplier_id,
   };
-  suppliersService
-    .update(updatedSupplier)
-    .then((data) => res.json({ data }))
-    .catch(next);
-  // The function above calls the SuppliersService.update() method, passing in the updatedSupplier objec
-  // Note that the supplier_id of updatedSupplier is always set to the existing supplier_id (res.locals.supplier.supplier_id) to 
-  // prevent the update from accidentally (or intentionally) changing the supplier_id during an update
-  // If the promise resolves successfully, then the server responds with the updated supplier
+  const data = await suppliersService.update(updatedSupplier);
+  res.json({ data });
 }
 
-// delete/destroy func 
-function destroy(req, res, next) {
-  suppliersService
-    .delete(res.locals.supplier.supplier_id)
-    .then(() => res.sendStatus(204))
-    .catch(next);
+// DELETE/DESTORY FUNC
+async function destroy(req, res) {
+  const { supplier } = res.locals;
+  await suppliersService.delete(supplier.supplier_id);
+  res.sendStatus(204);
 }
-
 module.exports = {
-  create: [hasOnlyValidProperties, hasRequiredProperties, create],
-  update: [supplierExists, hasOnlyValidProperties, hasRequiredProperties, update],
-  delete: [supplierExists, destroy],
+  create: [
+    hasOnlyValidProperties,
+    hasRequiredProperties,
+    asyncErrorBoundary(create),
+  ],
+  update: [
+    asyncErrorBoundary(supplierExists),
+    hasOnlyValidProperties,
+    hasRequiredProperties,
+    asyncErrorBoundary(update),
+  ],
+  delete: [asyncErrorBoundary(supplierExists), asyncErrorBoundary(destroy)],
 };

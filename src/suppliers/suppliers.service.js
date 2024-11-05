@@ -24,7 +24,8 @@ function update(updatedSupplier) {
     return knex("suppliers")
       .select("*")
       .where({ supplier_id: updatedSupplier.supplier_id })
-      .update(updatedSupplier, "*");
+      .update(updatedSupplier, "*")
+      .then((updatedRecords) => updatedRecords[0]);
 }
 
 function destroy(supplier_id) {
